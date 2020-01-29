@@ -5,7 +5,7 @@ const passport = require('passport');
 const _ = require('lodash');
 const validator = require('validator');
 const mailChecker = require('mailchecker');
-const User = require('../models/User');
+const {User} = require('../models/User');
 
 const randomBytesAsync = promisify(crypto.randomBytes);
 
@@ -44,6 +44,7 @@ exports.postLogin = (req, res, next) => {
       return res.redirect('/login');
     }
     req.logIn(user, (err) => {
+      console.log("popop: ",user,err)
       if (err) { return next(err); }
       req.flash('success', { msg: 'Success! You are logged in.' });
       res.redirect(req.session.returnTo || '/');
@@ -81,8 +82,9 @@ exports.getSignup = (req, res) => {
  * POST /signup
  * Create a new local account.
  */
-exports.postSignup = (req, res, next) => {
+exports.postSignup =  (req, res, next) => {
   const validationErrors = [];
+  console.log('postSignup 1:',req.body)
   if (!validator.isEmail(req.body.email)) validationErrors.push({ msg: 'Please enter a valid email address.' });
   if (!validator.isLength(req.body.password, { min: 8 })) validationErrors.push({ msg: 'Password must be at least 8 characters long' });
   if (req.body.password !== req.body.confirmPassword) validationErrors.push({ msg: 'Passwords do not match' });
@@ -97,14 +99,16 @@ exports.postSignup = (req, res, next) => {
     email: req.body.email,
     password: req.body.password
   });
-
-  User.findOne({ email: req.body.email }, (err, existingUser) => {
+  console.log('postSignup 1.1:',user,req.body.password)
+  User.findOne({ email: req.body.email }, async (err, existingUser) => {
     if (err) { return next(err); }
     if (existingUser) {
       req.flash('errors', { msg: 'Account with that email address already exists.' });
       return res.redirect('/signup');
     }
-    user.save((err) => {
+    console.log('postSignup 2:',user,user.save)
+    await user.save((err) => {
+      console.log('postSignup err:',err)
       if (err) { return next(err); }
       req.logIn(user, (err) => {
         if (err) {
@@ -141,6 +145,7 @@ exports.postUpdateProfile = (req, res, next) => {
   req.body.email = validator.normalizeEmail(req.body.email, { gmail_remove_dots: false });
 
   User.findById(req.user.id, (err, user) => {
+    console.log('asd: ',user,req.user.id)
     if (err) { return next(err); }
     if (user.email !== req.body.email) user.emailVerified = false;
     user.email = req.body.email || '';
@@ -192,7 +197,7 @@ exports.postUpdatePassword = (req, res, next) => {
  * Delete user account.
  */
 exports.postDeleteAccount = (req, res, next) => {
-  User.deleteOne({ _id: req.user.id }, (err) => {
+  User.deleteOne({ _id: req.user._key }, (err) => {
     if (err) { return next(err); }
     req.logout();
     req.flash('info', { msg: 'Your account has been deleted.' });
@@ -248,8 +253,7 @@ exports.getReset = (req, res, next) => {
     return res.redirect('/forgot');
   }
 
-  User
-    .findOne({ passwordResetToken: req.params.token })
+  User.findOne({ passwordResetToken: req.params.token })
     .where('passwordResetExpires').gt(Date.now())
     .exec((err, user) => {
       if (err) { return next(err); }
@@ -281,8 +285,7 @@ exports.getVerifyEmailToken = (req, res, next) => {
   }
 
   if (req.params.token === req.user.emailVerificationToken) {
-    User
-      .findOne({ email: req.user.email })
+    User.findOne({ email: req.user.email })
       .then((user) => {
         if (!user) {
           req.flash('errors', { msg: 'There was an error in loading your profile.' });
@@ -321,8 +324,7 @@ exports.getVerifyEmail = (req, res, next) => {
     .then((buf) => buf.toString('hex'));
 
   const setRandomToken = (token) => {
-    User
-      .findOne({ email: req.user.email })
+    User.findOne({ email: req.user.email })
       .then((user) => {
         user.emailVerificationToken = token;
         user = user.save();
@@ -399,8 +401,7 @@ exports.postReset = (req, res, next) => {
   }
 
   const resetPassword = () =>
-    User
-      .findOne({ passwordResetToken: req.params.token })
+    User.findOne({ passwordResetToken: req.params.token })
       .where('passwordResetExpires').gt(Date.now())
       .then((user) => {
         if (!user) {
@@ -498,8 +499,7 @@ exports.postForgot = (req, res, next) => {
     .then((buf) => buf.toString('hex'));
 
   const setRandomToken = (token) =>
-    User
-      .findOne({ email: req.body.email })
+    User.findOne({ email: req.body.email })
       .then((user) => {
         if (!user) {
           req.flash('errors', { msg: 'Account with that email address does not exist.' });

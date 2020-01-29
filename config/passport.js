@@ -15,13 +15,15 @@ const { OAuth2Strategy } = require('passport-oauth');
 const _ = require('lodash');
 const moment = require('moment');
 
-const User = require('../models/User');
+const {User } = require('../models/User');
 
 passport.serializeUser((user, done) => {
-  done(null, user.id);
+  console.log("XXXXXXXXXXXXXXXXXXXXX: serialeze:",user,user._id)
+  done(null, user._id);
 });
 
 passport.deserializeUser((id, done) => {
+  console.log("XXXXXXXXXXXXXXXXXXXXX: deserialeze:",id)
   User.findById(id, (err, user) => {
     done(err, user);
   });
@@ -31,6 +33,7 @@ passport.deserializeUser((id, done) => {
  * Sign in using Email and Password.
  */
 passport.use(new LocalStrategy({ usernameField: 'email' }, (email, password, done) => {
+  console.log("LocalStrategy:",email,password)
   User.findOne({ email: email.toLowerCase() }, (err, user) => {
     if (err) { return done(err); }
     if (!user) {
@@ -655,7 +658,7 @@ exports.isAuthenticated = (req, res, next) => {
  */
 exports.isAuthorized = (req, res, next) => {
   const provider = req.path.split('/')[2];
-  const token = req.user.tokens.find((token) => token.kind === provider);
+  const token = req.user.tokens.User.find((token) => token.kind === provider);
   if (token) {
     // Is there an access token expiration and access token expired?
     // Yes: Is there a refresh token?
